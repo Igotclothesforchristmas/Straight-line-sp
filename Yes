@@ -1,0 +1,258 @@
+lineToggle = document.createElement("input")
+lineToggle.setAttribute("type","checkbox")
+
+document.getElementById("ui").append("toggle line", lineToggle)
+
+sizeMap =  [1, 3, 7, 19, 39]
+overlayCanv = document.createElement("canvas");
+octx = overlayCanv.getContext("2d");
+n = 300
+overlayCanv.id = "overlayCanv"
+octx.translate(0.5, 0.5);
+
+overlayCanv.setAttribute("style", `position: absolute;
+  bottom: 0;
+  /* top: 0; */
+  right: 0px;
+  left: 0px;
+  z-index: 1;
+  max-width: calc(100% - 3px);
+  /* width: calc(100% - 0px); */
+  /* max-width: ca100%; */
+  margin: auto;
+  border: red 5px solid;
+  box-shadow: 0px 0px 3px 3px red;`)
+overlayCanv.setAttribute("inert", "true")
+overlayCanv.height = 300
+overlayCanv.width = 300
+octx.strokeWidth = 1
+document.body.append(overlayCanv)
+
+let resize = () => {
+  let screen_width = window.innerWidth;
+  let uiheight = 50;
+  let screen_height = window.innerHeight - uiheight;
+
+  let canvasStyle = "";
+  let uiStyle = "";
+  let adStyle = "display:none;";
+  if (screen_width > screen_height) {
+    if (screen_width - window.innerHeight < 400) {
+      // landscape compressed
+
+      canvasStyle = `height: ${window.innerHeight}px; margin:3px`;
+      uiStyle = `width: ${
+      screen_width - window.innerHeight - 12
+    }px; margin: 2px;`;
+    } else {
+      // landscape wide
+      canvasStyle = `
+       height: ${window.innerHeight}px;
+       width:${window.innerHeight}px;
+       margin:0;
+       left: auto;
+       right: 206px`;
+
+      // uiStyle = `width: ${(screen_width - window.innerHeight) / 2 -
+      //   7}px; margin: 2px;`;
+      uiStyle = `width: 200px; margin: 2px;`;
+
+      adStyle = `width: ${
+      screen_width - window.innerHeight - (206 + 150)
+    }px; margin: 1px;`;
+    }
+  } else {
+    //portrait (mobile)
+    canvasStyle = `width: ${screen_width}px; bottom:3px;`;
+    uiStyle = "";
+  }
+  // ui.style = uiStyle;
+  overlayCanv.style = canvasStyle;
+  document.getElementsByClassName("adslot_1")[0].style = adStyle;
+};
+
+resize();
+window.addEventListener("deviceorientation", resize, true);
+window.addEventListener("resize", resize);
+
+x0 = 0
+y0 = 0
+x1 = 100
+y1 = 256
+points = []
+
+startX = 0
+startY = 0
+
+endX = 0
+endY = 0
+
+const SNDcanvas = document.getElementById("sand-canvas")
+const drawLine = (x0, y0, x1, y1) => {
+  points = []
+  const lineLow = (x0, y0, x1, y1) => {
+    const dx = x1 - x0
+    let dy = y1 - y0
+    let yi = 1
+
+    if (dy < 0) {
+      yi = -1
+      dy = -dy
+    }
+
+    let D = 2 * dy - dx
+    let y = y0
+
+    for (let x = x0; x < x1; x++) {
+      points.push([x,y])
+
+      if (D > 0) {
+        y = y + yi
+        D = D - 2 * dx
+      }
+
+      D = D + 2 * dy
+    }
+  }
+
+  const lineHigh = (x0, y0, x1, y1) => {
+    let dx = x1 - x0
+    const dy = y1 - y0
+    let xi = 1
+
+    if (dx < 0) {
+      xi = -1
+      dx = -dx
+    }
+
+    let D = 2 * dx - dy
+    let x = x0
+
+    for (let y = y0; y < y1; y++) {
+      points.push([x,y])
+      if (D > 0) {
+        x = x + xi
+        D = D - 2 * dy
+      }
+
+      D = D + 2 * dx
+    }
+  }
+
+  const { abs } = Math
+
+  if (abs(y1 - y0) < abs(x1 - x0)) {
+    if (x0 > x1) {
+      lineLow(x1, y1, x0, y0)
+    } else {
+      lineLow(x0, y0, x1, y1)
+    }
+  } else {
+    if (y0 > y1) {
+      lineHigh(x1, y1, x0, y0)
+    } else {
+      lineHigh(x0, y0, x1, y1)
+    }
+  }
+  return points
+}
+
+const paint = (ix,iy) => {
+  const boundingRect = SNDcanvas.getBoundingClientRect();
+
+  const scaleX =
+        SNDcanvas.width / Math.ceil(window.devicePixelRatio) / boundingRect.width;
+  const scaleY =
+        SNDcanvas.height / Math.ceil(window.devicePixelRatio) / boundingRect.height;
+
+  const canvasLeft = (ix - boundingRect.left) * scaleX;
+  const canvasTop = (iy - boundingRect.top) * scaleY;
+
+  const x = Math.min(Math.floor(canvasLeft), 300 - 1);
+  const y = Math.min(Math.floor(canvasTop), 300 - 1);
+  return [x,y]
+};
+
+function upCLK(event) {
+  if (lineToggle.checked) {
+    event.preventDefault()
+    event.stopPropagation()
+    event.stopImmediatePropagation()
+    startX = event.clientX
+    startY = event.clientY
+    if (event.type = "touchmove") {
+      var touch = event.touches[0] || event.changedTouches[0];
+      startX = touch.pageX
+      startY = touch.pageY
+    }
+    event.stopImmediatePropagation()
+  }
+}
+
+function downCLK(event) {
+  if (lineToggle.checked) {
+    event.preventDefault()
+    octx.strokeWidth = sizeMap[window.UI.state.size]
+    event.stopImmediatePropagation()
+    event.stopPropagation()
+    endX = event.clientX
+    endY = event.clientY
+    if (event.type == "touchend") {
+      var touch = event.touches[0] || event.changedTouches[0];
+      endX = touch.pageX
+      endY = touch.pageY
+    }
+    points = []
+    for (coord of drawLine(
+      paint(startX,startY)[0],
+      paint(startX,startY)[1],
+      paint(endX,endY)[0],
+      paint(endX,endY)[1],
+    )
+        ) {
+      u.paint(coord[0],coord[1],sizeMap[window.UI.state.size],window.UI.state.selectedElement)
+      // ctx.rect(coord[0],coord[1],1,1)
+    }
+    u.push_undo();
+    event.stopImmediatePropagation()
+  }
+  octx.clearRect(0, 0, overlayCanv.width, overlayCanv.height);
+}
+
+function cancelMouse(event) {
+  event.stopImmediatePropagation()
+}
+
+SNDcanvas.addEventListener("mousedown", upCLK, {capture: true})
+SNDcanvas.addEventListener("touchstart", upCLK, {capture: true})
+0
+// SNDcanvas.addEventListener("pointerdown", upCLK, {capture: true})
+
+SNDcanvas.addEventListener("mouseup", downCLK, {capture: true})
+SNDcanvas.addEventListener("touchend", downCLK, {capture: true})
+// SNDcanvas.addEventListener("pointerup", downCLK, {capture: true})
+SNDcanvas.addEventListener("mousemove", readMouse)
+SNDcanvas.addEventListener("touchmove", readMouse)
+document.addEventListener("keypress", handleKeyPress)
+
+function handleKeyPress(e) {
+  if (e.key == "l") {
+    lineToggle.click()
+  }
+}
+
+function readMouse(e) {
+  octx.clearRect(0, 0, overlayCanv.width, overlayCanv.height);
+  if (lineToggle.checked) {
+    if (e.type == "touchmove") {
+      pX = e.touches[0].clientX
+      pY = e.touches[0].clientY
+    }
+    if (e.buttons == 1 || e.type == "touchmove") {
+      octx.beginPath();
+      octx.moveTo(paint(startX,startY)[0],paint(startX,startY)[1]);
+      octx.lineTo(paint(pX,pY)[0],paint(pX,pY)[1]);
+      octx.stroke()
+    }    
+  }
+}
